@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+backend/uploads/
+.env
+.env.*
+!.env.example
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/*.tsbuildinfo

@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Neuromorphic Multi-Agent Reviewer</title>
+  <style>
+    :root {
+      --bg: #0b1220; --card: #111827; --border: #1f2937; --text: #e5e7eb;
+      --muted: #9ca3af; --cyan: #22d3ee; --indigo: #6366f1;
+      --rose: #fb7185; --amber: #fbbf24; --emerald: #34d399;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: linear-gradient(135deg, #0b1220 0%, #111827 50%, #1e1b4b 100%);
+      color: var(--text); min-height: 100vh;
+    }
+    header {
+      border-bottom: 1px solid var(--border); background: rgba(11,18,32,0.85);
+      backdrop-filter: blur(8px); position: sticky; top: 0; z-index: 10;
+    }
+    .wrap { max-width: 960px; margin: 0 auto; padding: 1rem 1.25rem; }
+    h1 { font-size: 1.15rem; margin: 0; }
+    .sub { font-size: 0.75rem; color: var(--muted); margin-top: 0.2rem; }
+    .grid { display: grid; gap: 1rem; grid-template-columns: 1fr; }
+    @media (min-width: 720px) { .grid { grid-template-columns: 1fr 1fr; } }
+    .card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 1rem; padding: 1.25rem;
+    }
+    label { font-size: 0.85rem; color: #d1d5db; display: block; margin-bottom: 0.5rem; }
+    textarea {
+      width: 100%; height: 120px; background: #030712; border: 1px solid #374151;
+      border-radius: 0.75rem; color: var(--text); padding: 0.75rem; resize: vertical; font-size: 0.9rem;
+    }
+    textarea:focus { outline: 2px solid rgba(34,211,238,0.4); }
+    .drop {
+      border: 2px dashed #374151; border-radius: 0.75rem; padding: 2rem;
+      text-align: center; cursor: pointer; color: var(--muted); transition: 0.15s;
+    }
+    .drop:hover, .drop.has-file { border-color: var(--cyan); background: rgba(34,211,238,0.05); }
+    .actions { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; margin: 1.25rem 0; }
+    button {
+      border: none; border-radius: 0.75rem; padding: 0.65rem 1.25rem;
+      font-weight: 600; cursor: pointer; font-size: 0.95rem;
+    }
+    .btn-primary { background: linear-gradient(90deg, var(--cyan), var(--indigo)); color: #0b1220; }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-ghost { background: transparent; color: var(--muted); border: 1px solid #374151; }
+    .error { color: var(--rose); font-size: 0.9rem; }
+    .stats { display: grid; grid-template-columns: repeat(2,1fr); gap: 0.75rem; }
+    @media (min-width: 600px) { .stats { grid-template-columns: repeat(4,1fr); } }
+    .stat { border-radius: 0.75rem; border: 1px solid var(--border); padding: 0.9rem; background: #0f172a; }
+    .stat .label { font-size: 0.7rem; color: var(--muted); }
+    .stat .val { font-size: 1.5rem; font-weight: 700; margin-top: 0.2rem; }
+    .tabs { display: flex; gap: 0.25rem; border-bottom: 1px solid var(--border); margin: 1.5rem 0 1rem; }
+    .tab {
+      background: none; border: none; color: var(--muted); padding: 0.6rem 0.9rem;
+      border-bottom: 2px solid transparent; cursor: pointer; font-size: 0.85rem;
+    }
+    .tab.active { color: var(--cyan); border-bottom-color: var(--cyan); }
+    .agent {
+      border: 1px solid var(--border); border-radius: 1rem; overflow: hidden;
+      margin-bottom: 0.75rem; background: #0f172a;
+    }
+    .agent-head {
+      padding: 0.65rem 1rem; display: flex; justify-content: space-between;
+      align-items: center; font-weight: 600; font-size: 0.9rem;
+    }
+    .viewer { background: linear-gradient(90deg,#06b6d4,#2563eb); }
+    .thinker { background: linear-gradient(90deg,#8b5cf6,#7c3aed); }
+    .recall { background: linear-gradient(90deg,#10b981,#0d9488); }
+    .checker { background: linear-gradient(90deg,#f59e0b,#ea580c); }
+    .synthesizer { background: linear-gradient(90deg,#f43f5e,#db2777); }
+    .agent-body { padding: 1rem; }
+    .thought {
+      margin-top: 0.75rem; padding: 0.75rem; background: #030712;
+      border: 1px solid #1f2937; border-radius: 0.5rem;
+      font-family: ui-monospace, monospace; font-size: 0.8rem; color: #9ca3af; line-height: 1.45;
+    }
+    .issue { border-radius: 0.75rem; border: 1px solid; padding: 1rem; margin-bottom: 0.75rem; }
+    .issue.high { border-color: rgba(251,113,133,0.4); background: rgba(251,113,133,0.06); }
+    .issue.medium { border-color: rgba(251,191,36,0.35); background: rgba(251,191,36,0.06); }
+    .badge { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; padding: 0.15rem 0.5rem; border-radius: 0.25rem; }
+    .badge.high { background: rgba(251,113,133,0.2); color: #fda4af; }
+    .badge.medium { background: rgba(251,191,36,0.2); color: #fcd34d; }
+    .hidden { display: none; }
+    .spinner {
+      width: 1rem; height: 1rem; border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white; border-radius: 50%; display: inline-block;
+      animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 0.4rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    footer { text-align: center; color: #4b5563; font-size: 0.75rem; padding: 2rem 1rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap" style="display:flex;align-items:center;gap:0.75rem;">
+      <div style="width:2.25rem;height:2.25rem;border-radius:0.75rem;background:linear-gradient(135deg,#22d3ee,#6366f1);display:flex;align-items:center;justify-content:center;font-size:1.1rem;">⚡</div>
+      <div>
+        <h1>Neuromorphic Multi-Agent Reviewer</h1>
+        <div class="sub">See → Think → Recall → Check → Synthesize · Anti-hallucination pipeline</div>
+      </div>
+    </div>
+  </header>
+  <main class="wrap">
+    <div class="grid" style="margin-top:1.5rem;">
+      <div class="card">
+        <label>📄 Upload Research Document (.txt / .pdf / .docx)</label>
+        <div class="drop" id="dropzone">
+          <input type="file" id="file" accept=".txt,.pdf,.docx,.doc" hidden />
+          <div id="drop-label">Click or drop a file here</div>
+        </div>
+      </div>
+      <div class="card">
+        <label>✍️ Or paste text</label>
+        <textarea id="text" placeholder="Paste claims about neuromorphic computing, SNNs, Loihi, STDP, TrueNorth..."></textarea>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn-primary" id="runBtn" onclick="runReview()">Run Multi-Agent Review</button>
+      <button class="btn-ghost" onclick="clearAll()">Clear</button>
+      <span class="error" id="error"></span>
+    </div>
+    <div id="results" class="hidden">
+      <div class="stats" id="stats"></div>
+      <div class="card" style="margin-top:1rem;" id="assessment"></div>
+      <div class="tabs">
+        <button class="tab active" data-tab="trace" onclick="showTab('trace')">Agent Trace</button>
+        <button class="tab" data-tab="report" onclick="showTab('report')">Issues & Recommendations</button>
+        <button class="tab" data-tab="claims" onclick="showTab('claims')">Extracted Claims</button>
+      </div>
+      <div id="panel-trace"></div>
+      <div id="panel-report" class="hidden"></div>
+      <div id="panel-claims" class="hidden"></div>
+    </div>
+    <div class="card" style="margin-top:2rem;" id="howto">
+      <div style="font-size:0.85rem;color:#d1d5db;margin-bottom:0.75rem;">How the multi-agent anti-hallucination pipeline works</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:0.5rem;text-align:center;font-size:0.75rem;color:var(--muted);">
+        <div>👁️<br><b style="color:#e5e7eb">Viewer</b><br>Sees & extracts claims</div>
+        <div>🧠<br><b style="color:#e5e7eb">Thinker</b><br>Reasons about risks</div>
+        <div>📚<br><b style="color:#e5e7eb">Recall</b><br>Grounded knowledge</div>
+        <div>🔍<br><b style="color:#e5e7eb">Checker</b><br>Detects myths & errors</div>
+        <div>✨<br><b style="color:#e5e7eb">Synthesizer</b><br>Final report</div>
+      </div>
+    </div>
+  </main>
+  <footer>Neuromorphic AI Researcher · Multi-Agent Document Reviewer · Local-first</footer>
+  <script>
+    const API = window.location.origin;
+    let selectedFile = null;
+    const drop = document.getElementById('dropzone');
+    const fileInput = document.getElementById('file');
+    drop.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => {
+      selectedFile = e.target.files[0] || null;
+      document.getElementById('drop-label').textContent = selectedFile
+        ? selectedFile.name + ' (' + (selectedFile.size/1024).toFixed(1) + ' KB)'
+        : 'Click or drop a file here';
+      drop.classList.toggle('has-file', !!selectedFile);
+    });
+    function clearAll() {
+      selectedFile = null; fileInput.value = '';
+      document.getElementById('text').value = '';
+      document.getElementById('drop-label').textContent = 'Click or drop a file here';
+      drop.classList.remove('has-file');
+      document.getElementById('results').classList.add('hidden');
+      document.getElementById('error').textContent = '';
+      document.getElementById('howto').classList.remove('hidden');
+    }
+    function showTab(name) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+      ['trace','report','claims'].forEach(n => {
+        document.getElementById('panel-' + n).classList.toggle('hidden', n !== name);
+      });
+    }
+    async function runReview() {
+      const btn = document.getElementById('runBtn');
+      const err = document.getElementById('error');
+      err.textContent = ''; btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>Agents working…';
+      try {
+        let data;
+        if (selectedFile) {
+          const form = new FormData(); form.append('file', selectedFile);
+          const res = await fetch(API + '/api/review', { method: 'POST', body: form });
+          if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || ('Server error ' + res.status)); }
+          data = await res.json();
+        } else {
+          const text = document.getElementById('text').value.trim();
+          if (text.length < 20) throw new Error('Paste at least ~20 characters or upload a file.');
+          const res = await fetch(API + '/api/review-text', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text })
+          });
+          if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || ('Server error ' + res.status)); }
+          data = await res.json();
+        }
+        render(data.result);
+      } catch (e) {
+        err.textContent = e.message || 'Something went wrong';
+      } finally {
+        btn.disabled = false; btn.textContent = 'Run Multi-Agent Review';
+      }
+    }
+    function render(r) {
+      document.getElementById('howto').classList.add('hidden');
+      document.getElementById('results').classList.remove('hidden');
+      const fr = r.final_report || {};
+      document.getElementById('stats').innerHTML = `
+        <div class="stat"><div class="label">Claims</div><div class="val" style="color:var(--cyan)">${fr.claim_count||0}</div></div>
+        <div class="stat"><div class="label">Issues</div><div class="val" style="color:${(fr.issues_found||0)>0?'var(--amber)':'var(--emerald)'}">${fr.issues_found||0}</div></div>
+        <div class="stat"><div class="label">High severity</div><div class="val" style="color:${(fr.high_severity||0)>0?'var(--rose)':'var(--emerald)'}">${fr.high_severity||0}</div></div>
+        <div class="stat"><div class="label">Knowledge used</div><div class="val" style="color:#a78bfa">${fr.knowledge_items_used||0}</div></div>`;
+      document.getElementById('assessment').innerHTML =
+        '<div style="font-size:0.75rem;color:var(--muted);margin-bottom:0.35rem;">Overall Assessment</div><div>' + (fr.overall_assessment || '') + '</div>';
+      const icons = {viewer:'👁️',thinker:'🧠',recall:'📚',checker:'🔍',synthesizer:'✨'};
+      document.getElementById('panel-trace').innerHTML = (r.agent_trace||[]).map(m => `
+        <div class="agent"><div class="agent-head ${m.role}">
+          <span>${icons[m.role]||'🤖'} ${m.role.charAt(0).toUpperCase()+m.role.slice(1)} Agent</span>
+          <span style="font-size:0.7rem;background:rgba(0,0,0,0.25);padding:0.15rem 0.5rem;border-radius:999px;">Confidence ${Math.round((m.confidence||0)*100)}%</span>
+        </div><div class="agent-body"><div>${m.content||''}</div>
+        ${m.thought ? `<div class="thought"><div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.35rem;color:#6b7280;">Internal reasoning (anti-hallucination)</div>${m.thought}</div>` : ''}
+        </div></div>`).join('');
+      const issues = (fr.detailed_issues||[]).map(i => `
+        <div class="issue ${i.severity}"><div style="margin-bottom:0.4rem;">
+          <span class="badge ${i.severity}">${i.severity}</span>
+          <span style="font-size:0.7rem;color:var(--muted);margin-left:0.4rem;">${i.type}</span></div>
+          <div style="font-style:italic;font-size:0.9rem;margin-bottom:0.4rem;">“${i.claim}”</div>
+          <div style="font-size:0.85rem;color:#d1d5db;">${i.explanation}</div>
+          <div style="font-size:0.8rem;color:var(--cyan);margin-top:0.35rem;">💡 ${i.suggestion}</div></div>`).join('')
+        || '<p style="color:var(--emerald);font-size:0.9rem;">No strong red flags detected against the knowledge base.</p>';
+      const recs = (fr.recommendations||[]).map(x => `<li style="margin:0.25rem 0;color:#9ca3af;font-size:0.85rem;">→ ${x}</li>`).join('');
+      document.getElementById('panel-report').innerHTML = issues +
+        (recs ? `<h3 style="font-size:0.9rem;margin:1.25rem 0 0.5rem;">Recommendations</h3><ul style="padding-left:0;list-style:none;">${recs}</ul>` : '') +
+        `<p style="font-size:0.7rem;color:#4b5563;margin-top:1rem;border-top:1px solid var(--border);padding-top:0.75rem;">${fr.agent_collaboration_note||''}</p>`;
+      document.getElementById('panel-claims').innerHTML = (r.extracted_claims||[]).length
+        ? r.extracted_claims.map((c,i) => `<div class="card" style="margin-bottom:0.5rem;font-size:0.85rem;"><span style="color:#6b7280;">#${i+1}</span> ${c}</div>`).join('')
+        : '<p style="color:var(--muted);font-size:0.9rem;">No claims extracted.</p>';
+      showTab('trace');
+    }
+  </script>
+</body>
+</html>
